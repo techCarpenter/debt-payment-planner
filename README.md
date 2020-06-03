@@ -1,13 +1,15 @@
 # Debt Payment Planner
 
+[*Live Demo*](https://techcarpenter.gitlab.io/debt-payment-planner/)
+
 ## Requirements
 
-- [x] A way to add/edit/delete loans
+- [x] (05.27.2020) A way to add/edit/delete loans
+- [x] (06.02.2020) A chart of the table is generated
+- [x] (06.03.2020) Chart refresh is animated
 - [ ] A way to select the date information was last updated
 - [ ] A place to enter starting monthly payment amount
 - [ ] A table is generated with the payment plan details
-- [x] A chart of the table is generated
-- [x] Chart refresh is animated
 - [ ] A way to choose the loan chart color
 - [ ] A way to select multiple loans to delete
 - [ ] Data is stored in a DB and persists sessions
