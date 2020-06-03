@@ -59,19 +59,19 @@ Vue.component("loan-item", {
   },
   template: `<tr>
       <td v-if="!isEditing">{{loan.name}}</td>
-      <td v-else @keyup.enter="handleEdit"><input type="text" v-model="newLoan.name" /></td>
+      <td v-else @keyup.esc="isEditing=false" @keyup.enter="handleEdit"><input type="text" v-model="newLoan.name" /></td>
 
       <td v-if="!isEditing" style="text-align: right;">\${{loan.balance.toFixed(2)}}</td>
-      <td v-else style="text-align: right;" @keyup.enter="handleEdit"><input type="number" step="any" v-model="newLoan.balance" /></td>
+      <td v-else style="text-align: right;" @keyup.esc="isEditing=false" @keyup.enter="handleEdit"><input type="number" step="any" v-model="newLoan.balance" /></td>
 
       <td v-if="!isEditing" style="text-align: right;">{{loan.apr.toFixed(2)}}%</td>
-      <td v-else style="text-align: right;" @keyup.enter="handleEdit"><input type="number" min="0" step="any" v-model="newLoan.apr" /></td>
+      <td v-else style="text-align: right;" @keyup.esc="isEditing=false" @keyup.enter="handleEdit"><input type="number" min="0" step="any" v-model="newLoan.apr" /></td>
 
       <td v-if="!isEditing" style="text-align: right;">\${{loan.minPayment.toFixed(2)}}</td>
-      <td v-else style="text-align: right;" @keyup.enter="handleEdit"><input type="number" min="0" step="any" v-model="newLoan.minPayment" /></td>
+      <td v-else style="text-align: right;" @keyup.esc="isEditing=false" @keyup.enter="handleEdit"><input type="number" min="0" step="any" v-model="newLoan.minPayment" /></td>
 
-      <td><button @click="handleEdit">{{ isEditing ? "Commit" : "Edit" }}</button></td>
-      <td><button @click="$emit('destroy')">Delete</button></td>
+      <td><button @keyup.esc="isEditing=false" @click="handleEdit">{{ isEditing ? "Commit" : "Edit" }}</button></td>
+      <td><button @keyup.esc="isEditing=false" @click="$emit('destroy')">Delete</button></td>
     </tr>`,
 });
 
@@ -133,6 +133,8 @@ let app = new Vue({
     handleDestroy(loan) {
       const index = this.loans.indexOf(loan);
       this.loans.splice(index, 1);
+
+      this.graphLoans();
     },
     handleAdd(newLoan) {
       newLoan.id = this.nextLoanId;
@@ -159,10 +161,11 @@ let app = new Vue({
     },
     graphLoans() {
       let localData = [];
-      for (let i = 0; i < this.loans.length; i++) {
-        localData = [...localData, ...this.getPaymentData(this.loans[i])];
-      }
+      this.loans.map((loan) => {
+        localData = [...localData, ...this.getPaymentData(loan)];
+      });
 
+      /* Group loan payment data by loan ID */
       let sumstat = d3
         .nest()
         .key(function (d) {
@@ -170,20 +173,15 @@ let app = new Vue({
         })
         .entries(localData);
 
-      let dateGrouping = d3
-        .nest()
-        .key(function (d) {
-          return d.date;
-        })
-        .entries(localData);
-
-      // set the dimensions and margins of the graph
+      /* set the dimensions and margins of the graph */
       let margin = { top: 30, right: 30, bottom: 30, left: 60 },
         width = 800 - margin.left - margin.right,
         height = 400 - margin.top - margin.bottom;
 
+      /* Remove any svg from previous charts */
       d3.select("#loan-graph > *").remove();
-      // append the svg object to the body of the page
+
+      /* Append the svg object to the body of the page */
       let svg = d3
         .select("#loan-graph")
         .attr("width", width + margin.left + margin.right)
@@ -191,7 +189,7 @@ let app = new Vue({
         .append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-      // Add X axis --> it is a date format
+      /* Add X axis (it is a date format) */
       let xScale = d3
         .scaleTime()
         .domain(
@@ -206,7 +204,7 @@ let app = new Vue({
         .attr("transform", "translate(0," + height + ")")
         .call(d3.axisBottom(xScale));
 
-      // Add Y axis
+      /* Add Y axis */
       let yScale = d3
         .scaleLinear()
         .domain([
@@ -218,7 +216,7 @@ let app = new Vue({
         .range([height, 0]);
       svg.append("g").call(d3.axisLeft(yScale));
 
-      /* list of group names */
+      /* list of loan group names */
       let res = sumstat.map(function (d) {
         return d.key;
       });
@@ -248,6 +246,20 @@ let app = new Vue({
               return yScale(+d.balance);
             })(d.values);
         });
+
+      /* Add 'curtain' rectangle to hide graph */
+      svg
+        .append("rect")
+        .attr("x", -1 * width)
+        .attr("y", -1 * height)
+        .attr("height", height)
+        .attr("width", width)
+        .attr("class", "curtain")
+        .attr("transform", "rotate(180)")
+        .style("fill", "#ffffff");
+
+      /* Animate curtain to reveal graph */
+      svg.select("rect.curtain").transition().delay(500).duration(2000).attr("width", 0).ease(d3.easeCubic);
     },
     getPaymentData(loan) {
       let paymentData = [];
@@ -286,7 +298,7 @@ let app = new Vue({
         curMonthPrincipal = minPay - curMonthInterest;
         futureValue = parseFloat((presentValue + curMonthInterest - minPay).toFixed(2));
 
-        if (futureValue >= presentValue) {
+        if (futureValue >= presentValue && futureValue !== 0) {
           alert("Minimum payment will not cover interest every month.");
           break;
         }
